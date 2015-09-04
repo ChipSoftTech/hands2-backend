@@ -6,15 +6,17 @@ var jwt        = require("jsonwebtoken");
 var mongoose   = require("mongoose");
 var app        = express();
 
+var mongourl = process.env.MONGO_URL || 'mongodb://localhost/hands2';
 var port = process.env.PORT || 3001;
+var secret = process.env.JWT_SECRET || 'letmein';
 var User     = require('./models/User');
 
 // Connect to DB
-mongoose.connect(process.env.MONGO_URL);
+//mongoose.connect(process.env.MONGO_URL);
+mongoose.connect(mongourl);
 
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
-app.use(morgan("dev"));
 app.use(function(req, res, next) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST');
@@ -22,7 +24,12 @@ app.use(function(req, res, next) {
     next();
 });
 
-
+// set morgan to log differently depending on your environment
+if (app.get('env') == 'production') {
+  app.use(morgan('common', { skip: function(req, res) { return res.statusCode < 400 }, stream: __dirname + '/../logs/handsfe.log' }));
+} else {
+  app.use(morgan('dev'));
+}
 
 app.post('/authenticate', function(req, res) {
     User.findOne({email: req.body.email, password: req.body.password}, function(err, user) {
@@ -67,7 +74,7 @@ app.post('/signin', function(req, res) {
                 userModel.email = req.body.email;
                 userModel.password = req.body.password;
                 userModel.save(function(err, user) {
-                    user.token = jwt.sign(user, process.env.JWT_SECRET);
+                    user.token = jwt.sign(user, secret);
                     user.save(function(err, user1) {
                         res.json({
                             type: true,
@@ -116,5 +123,5 @@ process.on('uncaughtException', function(err) {
 
 // Start Server
 app.listen(port, function () {
-    console.log( "Express server listening on port " + port);
+    console.log( "HANDS backend server listening on port " + port);
 });
